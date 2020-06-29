@@ -14,6 +14,7 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using GalaSoft.MvvmLight.Threading;
 
 namespace StyleTransfer
 {
@@ -70,6 +71,7 @@ namespace StyleTransfer
                 }
                 // Ensure the current window is active
                 Window.Current.Activate();
+                DispatcherHelper.Initialize();
             }
         }
 

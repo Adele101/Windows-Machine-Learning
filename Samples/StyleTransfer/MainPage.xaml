@@ -321,7 +321,7 @@
             <Run x:Uid="TxtCapture" FontWeight="Bold" />
             <Run Text="{x:Bind dummyFPS}" />
             <Run x:Uid="TxtRender" FontWeight="Bold" />
-            <Run FontWeight="Normal" Text="{x:Bind dummyFPS}" />
+            <Run FontWeight="Normal" Text="{Binding FrameRate}" />
           </TextBlock>
         </RelativePanel>
       </Border>

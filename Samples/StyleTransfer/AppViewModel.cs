@@ -22,6 +22,8 @@ using Windows.UI.Xaml.Media.Imaging;
 using Windows.UI.Xaml.Media;
 using Windows.Media.MediaProperties;
 using Windows.Storage.Pickers;
+using GalaSoft.MvvmLight.Threading;
+using System.Threading;
 
 namespace StyleTransfer
 {
@@ -47,6 +49,7 @@ namespace StyleTransfer
         private List<MediaFrameSourceGroup> _mediaFrameSourceGroupList;
         private MediaFrameSourceGroup _selectedMediaFrameSourceGroup;
         private MediaFrameSource _selectedMediaFrameSource;
+        private bool _showFrameRate;
 
         // Style transfer effect properties
         private LearningModel m_model = null;
@@ -56,7 +59,7 @@ namespace StyleTransfer
         private string m_inputImageDescription;
         private string m_outputImageDescription;
         private IMediaExtension videoEffect;
-
+        private IMediaEncodingProperties _previewProperties;
 
         // Image style transfer properties
         uint m_inWidth, m_inHeight, m_outWidth, m_outHeight;
@@ -124,6 +127,7 @@ namespace StyleTransfer
             CleanupInputImage();
             NotifyUser(true);
             SaveEnabled = true;
+            _showFrameRate = false;
 
             // Changes media source while keeping all other controls 
             switch (_appModel.InputMedia)
@@ -133,7 +137,6 @@ namespace StyleTransfer
                     // TODO: Also spin up a Capture for preview on left side
                     break;
                 case "AcquireImage":
-
                     await StartAcquireImage();
                     break;
                 case "FilePick":
@@ -230,7 +233,7 @@ namespace StyleTransfer
         private async Task EvaluateVideoFrameAsync()
         {
             Debug.WriteLine("EvaluateVideoFrameAsync");
-            Debug.WriteLine("Has Direct3dsurface", _appModel.InputFrame.Direct3DSurface != null);
+            if (_appModel.InputFrame.Direct3DSurface != null) Debug.WriteLine("Has Direct3dsurface ");
             if ((_appModel.InputFrame != null) &&
                 (_appModel.InputFrame.SoftwareBitmap != null || _appModel.InputFrame.Direct3DSurface != null))
             {
@@ -284,6 +287,7 @@ namespace StyleTransfer
 
         public async Task ChangeLiveStream()
         {
+            _showFrameRate = false;
             Debug.WriteLine("ChangeLiveStream");
             SaveEnabled = false;
 
@@ -325,7 +329,7 @@ namespace StyleTransfer
         }
 
         // Preview the input and output media 
-        private void StartPreview()
+        private async void StartPreview()
         {
             Debug.WriteLine("StartPreview");
             _selectedMediaFrameSource = _mediaCapture.FrameSources.FirstOrDefault(source => source.Value.Info.MediaStreamType == MediaStreamType.VideoPreview
@@ -344,6 +348,43 @@ namespace StyleTransfer
 
             _appModel.OutputMediaSource = MediaSource.CreateFromMediaFrameSource(_selectedMediaFrameSource);
             _appModel.InputMediaSource = MediaSource.CreateFromMediaFrameSource(_selectedMediaFrameSource);
+
+            _showFrameRate = true;
+            GetFrameRate();
+        }
+
+        private uint _frameRate;
+        public uint FrameRate
+        {
+            get { return _frameRate; }
+            set { _frameRate = value; OnPropertyChanged(); }
+        }
+
+        private async void GetFrameRate()
+        {
+            while (_appModel.InputMedia == "LiveStream" && _showFrameRate)
+            {
+                DispatcherHelper.CheckBeginInvokeOnUI(() =>
+                {
+                    try
+                    {
+                        _previewProperties = _mediaCapture.VideoDeviceController.GetMediaStreamProperties(MediaStreamType.VideoPreview) as VideoEncodingProperties;
+                        if ((_previewProperties as VideoEncodingProperties).FrameRate.Denominator != 0)
+                        {
+                            FrameRate = (_previewProperties as VideoEncodingProperties).FrameRate.Numerator /
+                                (_previewProperties as VideoEncodingProperties).FrameRate.Denominator;
+                        }
+
+                        Debug.WriteLine("GetFrameRate");
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine(e.Message);
+                    }
+
+                });
+                Thread.Sleep(500);
+            }
         }
 
         private async Task LoadModelAsync()
